@@ -15,3 +15,8 @@ DPM: Department of Property Management
 
 ## Run
 TODO
+
+## Questions
+* What's the private key of Alice
+* Why system::Trait do not need to import
+* All the user can run a validator?
