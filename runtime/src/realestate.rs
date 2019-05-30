@@ -6,7 +6,8 @@ use support::{
 	StorageValue,
 	StorageMap,
 	ensure,
-	dispatch::Result
+	dispatch::Result,
+	traits::ReservableCurrency
 };
 use system::{
 	ensure_signed,
@@ -51,7 +52,7 @@ decl_storage! {
 
 		ManagerNonce: u64;
 
-		PropertiesForsale get(forsale_property): map u64 => (T::Hash, T::Balance);
+		PropertiesForsale get(forsale_property): map u64 => (T::Hash, T::Balance, bool, Option<T::AccountId>);
 		PropertyForsaleCount get(property_forsale_count): u64;
         PropertyForsaleIndex: map T::Hash => u64;
 	}
@@ -156,11 +157,36 @@ decl_module! {
 			let property_forsale_count = Self::property_forsale_count();
 			let new_property_forsale_count = property_forsale_count.checked_add(1).ok_or("Overflow when adding new property")?;
 
-			<PropertiesForsale<T>>::insert(property_forsale_count, (property_id, price));
+			<PropertiesForsale<T>>::insert(property_forsale_count, (property_id, price, false, None));
 			<PropertyForsaleCount<T>>::put(new_property_forsale_count);
 			<PropertyForsaleIndex<T>>::insert(property_id, property_forsale_count);
 
 			Self::deposit_event(RawEvent::PropertyForsale(property_id, price));
+
+			Ok(())
+		}
+
+		pub fn buy(origin, property_id: T::Hash) -> Result {
+			let sender = ensure_signed(origin)?;
+
+			ensure!(<Properties<T>>::exists(property_id), "The property is not exist");
+
+			let owner = Self::property_owner(property_id);
+
+			ensure!(owner != sender, "You can not buy your own property");
+
+			ensure!(<PropertyForsaleIndex<T>>::exists(property_id), "The property is not ready for sale");
+
+			let property_forsale_index = <PropertyForsaleIndex<T>>::get(property_id);
+			let (_, price, is_lock, buyer) = Self::forsale_property(property_forsale_index);
+			ensure!(is_lock == false, "The property is locked by another buyer");
+			ensure!(buyer == None, "The property is locked by another buyer");
+			
+			ensure!(<balances::Module<T>>::free_balance(&sender) >= price, "You don't have enough free balance to buy this property");
+
+			<balances::Module<T>>::reserve(&sender, price)?;
+
+			<PropertiesForsale<T>>::insert(property_forsale_index, (property_id, price, true, Some(sender)));
 
 			Ok(())
 		}
