@@ -25,11 +25,10 @@ pub trait Trait: balances::Trait {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Property<Hash, Balance> {
+pub struct Property<Hash> {
 	id: Hash,
 	size: u64,
-	certificate_no: u64, // TODO use vec!<char>
-	price: Option<Balance>,
+	certificate_no: u64, // TODO use vec<u8>
 	is_authenticated: bool
 }
 
@@ -40,15 +39,21 @@ decl_storage! {
 
 		Nonce: u64;
 
-		Properties get(property): map T::Hash => Property<T::Hash, T::Balance>;
+		Properties get(property): map T::Hash => Property<T::Hash>;
 
-		Index: map u64 => T::Hash;
+		AllPropertiesArray: map u64 => T::Hash;
+
+		PropertyOwner get(property_owner): map T::Hash => T::AccountId;
 
 		Managers get(manager): map u64 => T::AccountId;
 
 		ManagersIndex: map T::AccountId => u64;
 
 		ManagerNonce: u64;
+
+		PropertiesForsale get(forsale_property): map u64 => (T::Hash, T::Balance);
+		PropertyForsaleCount get(property_forsale_count): u64;
+        PropertyForsaleIndex: map T::Hash => u64;
 	}
 }
 
@@ -86,12 +91,13 @@ decl_module! {
 				id: random_hash,
 				size: size,
 				certificate_no: certificate_no,
-				price: None,
 				is_authenticated: false
 			};
 
 			<Properties<T>>::insert(random_hash, property);
-			<Index<T>>::insert(nonce, random_hash);
+			<AllPropertiesArray<T>>::insert(nonce, random_hash);
+
+			<PropertyOwner<T>>::insert(random_hash, sender);
 
 			<Nonce<T>>::mutate(|n| *n += 1);
 
@@ -132,13 +138,40 @@ decl_module! {
 
 			Ok(())
 		}
+
+		pub fn sell(origin, property_id: T::Hash, price: T::Balance) -> Result {
+			let sender = ensure_signed(origin)?;
+
+			ensure!(<Properties<T>>::exists(property_id), "The property is not exist");
+
+			let owner = Self::property_owner(property_id);
+
+			ensure!(owner == sender, "You do not own this property");
+
+			ensure!(!<PropertyForsaleIndex<T>>::exists(property_id), "The property is already for sale");
+
+			let property = Self::property(property_id);
+			ensure!(property.is_authenticated, "The property is not authenticated");
+
+			let property_forsale_count = Self::property_forsale_count();
+			let new_property_forsale_count = property_forsale_count.checked_add(1).ok_or("Overflow when adding new property")?;
+
+			<PropertiesForsale<T>>::insert(property_forsale_count, (property_id, price));
+			<PropertyForsaleCount<T>>::put(new_property_forsale_count);
+			<PropertyForsaleIndex<T>>::insert(property_id, property_forsale_count);
+
+			Self::deposit_event(RawEvent::PropertyForsale(property_id, price));
+
+			Ok(())
+		}
 	}
 }
 
 decl_event!(
 	pub enum Event<T> where
 	<T as system::Trait>::AccountId,
-	<T as system::Trait>::Hash
+	<T as system::Trait>::Hash,
+	<T as balances::Trait>::Balance
 	{
 		// Just a dummy event.
 		// Event `Something` is declared with a parameter of the type `u32` and `AccountId`
@@ -146,6 +179,7 @@ decl_event!(
 		SomethingStored(u32, AccountId),
 		Authenticated(AccountId, Hash, bool),
 		ManagerAdded(AccountId),
+		PropertyForsale(Hash, Balance),
 	}
 );
 
