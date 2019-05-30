@@ -1,5 +1,12 @@
 /// Realestate runtime module
-use support::{decl_module, decl_storage, decl_event, StorageValue, dispatch::Result};
+use support::{
+	decl_module,
+	decl_storage,
+	decl_event,
+	StorageValue,
+	StorageMap,
+	dispatch::Result
+};
 use system::ensure_signed;
 use runtime_primitives::traits::Hash;
 use parity_codec::{Encode, Decode};
@@ -26,7 +33,11 @@ decl_storage! {
 	trait Store for Module<T: Trait> as RealEstateStorage {
 		Something get(something): Option<u32>;
 
+		Nonce: u64;
+
 		Properties get(property): map T::Hash => Property<T::Hash, T::Balance>;
+
+		Index: map u64 => T::Hash;
 	}
 }
 
@@ -50,6 +61,28 @@ decl_module! {
 
 			// here we are raising the Something event
 			Self::deposit_event(RawEvent::SomethingStored(something, who));
+			Ok(())
+		}
+
+		pub fn record_property(origin, size: u64, certificate_no: u64) -> Result {
+			let sender = ensure_signed(origin)?;
+
+            let nonce = <Nonce<T>>::get();
+            let random_seed = <system::Module<T>>::random_seed();
+            let random_hash = (random_seed, &sender, nonce).using_encoded(<T as system::Trait>::Hashing::hash);
+
+			let property = Property {
+				id: random_hash,
+				size: size,
+				certificate_no: certificate_no,
+				price: None
+			};
+
+			<Properties<T>>::insert(random_hash, property);
+			<Index<T>>::insert(nonce, random_hash);
+
+			<Nonce<T>>::mutate(|n| *n += 1);
+
 			Ok(())
 		}
 	}

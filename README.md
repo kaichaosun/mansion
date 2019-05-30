@@ -16,7 +16,20 @@ DPM: Department of Property Management
 ## Run
 TODO
 
+## JSON serialization
+```json
+{
+  "Property": {
+    "id": "H256",
+    "size": "u64",
+    "certificate_no": "u64",
+    "price": "Balance"
+  }
+}
+```
+
 ## Questions
 * What's the private key of Alice
 * Why system::Trait do not need to import
 * All the user can run a validator?
+* Option<Balance> -> Balance in the serialization json format
