@@ -5,9 +5,13 @@ use support::{
 	decl_event,
 	StorageValue,
 	StorageMap,
+	ensure,
 	dispatch::Result
 };
-use system::ensure_signed;
+use system::{
+	ensure_signed,
+	ensure_root
+};
 use runtime_primitives::traits::Hash;
 use parity_codec::{Encode, Decode};
 
@@ -25,7 +29,8 @@ pub struct Property<Hash, Balance> {
 	id: Hash,
 	size: u64,
 	certificate_no: u64, // TODO use vec!<char>
-	price: Option<Balance>
+	price: Option<Balance>,
+	is_authenticated: bool
 }
 
 /// This module's storage items.
@@ -38,6 +43,12 @@ decl_storage! {
 		Properties get(property): map T::Hash => Property<T::Hash, T::Balance>;
 
 		Index: map u64 => T::Hash;
+
+		Managers get(manager): map u64 => T::AccountId;
+
+		ManagersIndex: map T::AccountId => u64;
+
+		ManagerNonce: u64;
 	}
 }
 
@@ -75,7 +86,8 @@ decl_module! {
 				id: random_hash,
 				size: size,
 				certificate_no: certificate_no,
-				price: None
+				price: None,
+				is_authenticated: false
 			};
 
 			<Properties<T>>::insert(random_hash, property);
@@ -85,15 +97,55 @@ decl_module! {
 
 			Ok(())
 		}
+
+		pub fn add_manager(origin, account_id: T::AccountId) -> Result {
+			let sender = ensure_root(origin)?;
+
+			ensure!(!<ManagersIndex<T>>::exists(&account_id), "The account is already manager");
+
+			let nonce = <ManagerNonce<T>>::get();
+
+			<Managers<T>>::insert(nonce, &account_id);
+			<ManagersIndex<T>>::insert(&account_id, nonce);
+
+			<ManagerNonce<T>>::mutate(|n| *n += 1);
+
+			Self::deposit_event(RawEvent::ManagerAdded(account_id));
+
+			Ok(())
+		}
+
+		pub fn authenticate(origin, property_id: T::Hash, is_authenticated: bool) -> Result {
+			let sender = ensure_signed(origin)?;
+
+			ensure!(<Properties<T>>::exists(property_id), "The property is not exist");
+
+			ensure!(<ManagersIndex<T>>::exists(sender.clone()), "The sender is not a manager");
+
+			let mut property = Self::property(property_id);
+
+			property.is_authenticated = is_authenticated;
+
+			<Properties<T>>::insert(property_id, property);
+
+			Self::deposit_event(RawEvent::Authenticated(sender, property_id, is_authenticated));
+
+			Ok(())
+		}
 	}
 }
 
 decl_event!(
-	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
+	pub enum Event<T> where
+	<T as system::Trait>::AccountId,
+	<T as system::Trait>::Hash
+	{
 		// Just a dummy event.
 		// Event `Something` is declared with a parameter of the type `u32` and `AccountId`
 		// To emit this event, we call the deposit funtion, from our runtime funtions
 		SomethingStored(u32, AccountId),
+		Authenticated(AccountId, Hash, bool),
+		ManagerAdded(AccountId),
 	}
 );
 

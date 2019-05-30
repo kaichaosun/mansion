@@ -5,13 +5,12 @@ A new SRML-based Substrate node, ready for hacking.
 ## Tasks
 DPM: Department of Property Management
 
-* Owner - create a property record
-* DPM - authenticate the new created property
-* Owner - put a property in market
-* Buyer - buy a property in market
-* Owner - confirm the trade for the purchase
-* DPM - authenticate the purchase
-* Block - finalize the purchase
+* [x] Owner - create a property record
+* [x] DPM - authenticate the new created property
+* [ ] Owner - put a property in market
+* [ ] Buyer - lock a property in market
+* [ ] Owner - confirm the lock (nice to have)
+* [ ] DPM - authenticate the purchase
 
 ## Run
 TODO
@@ -33,3 +32,5 @@ TODO
 * Why system::Trait do not need to import
 * All the user can run a validator?
 * Option<Balance> -> Balance in the serialization json format
+* `cargo build` is slow, how to improve it
+* new created account is not allowed to execute extrinsics.
