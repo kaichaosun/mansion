@@ -7,7 +7,8 @@ use support::{
 	StorageMap,
 	ensure,
 	dispatch::Result,
-	traits::ReservableCurrency
+	traits::ReservableCurrency,
+	traits::Currency
 };
 use system::{
 	ensure_signed,
@@ -186,7 +187,48 @@ decl_module! {
 
 			<balances::Module<T>>::reserve(&sender, price)?;
 
-			<PropertiesForsale<T>>::insert(property_forsale_index, (property_id, price, true, Some(sender)));
+			<PropertiesForsale<T>>::insert(property_forsale_index, (property_id, price, true, Some(sender.clone())));
+
+			Self::deposit_event(RawEvent::BuyProperty(property_id, sender, owner));
+			
+			Ok(())
+		}
+
+		pub fn authenticate_trade(origin, property_id: T::Hash) -> Result {
+			let sender = ensure_signed(origin)?;
+
+			ensure!(<Properties<T>>::exists(property_id), "The property is not exist");
+
+			ensure!(<ManagersIndex<T>>::exists(sender.clone()), "The sender is not a manager");
+
+			ensure!(<PropertyForsaleIndex<T>>::exists(property_id), "The property is not ready for sale");
+
+			let property_forsale_index = <PropertyForsaleIndex<T>>::get(property_id);
+			let (_, price, is_lock, buyer_option) = Self::forsale_property(property_forsale_index);
+			ensure!(is_lock == true, "The property is unlocked");
+			ensure!(buyer_option != None, "There is no buyer for this property");
+			let buyer = buyer_option.clone().unwrap();
+
+			<balances::Module<T>>::unreserve(&buyer, price);
+			
+			let property_forsale_count = Self::property_forsale_count();
+			let new_property_forsale_count = property_forsale_count.checked_sub(1).ok_or("Underflow when decrease a kitty")?;
+			if (property_forsale_index != new_property_forsale_count) {
+				let last_property_forsale_info = Self::forsale_property(new_property_forsale_count);
+				<PropertiesForsale<T>>::insert(new_property_forsale_count, (property_id, price, is_lock, buyer_option));
+				<PropertiesForsale<T>>::insert(property_forsale_index, last_property_forsale_info);
+			}
+
+			<PropertiesForsale<T>>::remove(new_property_forsale_count);
+			<PropertyForsaleIndex<T>>::remove(property_id);
+			<PropertyForsaleCount<T>>::put(new_property_forsale_count);
+			
+			let owner = Self::property_owner(property_id);
+
+			<PropertyOwner<T>>::insert(property_id, &buyer);
+			<balances::Module<T> as Currency<_>>::transfer(&buyer, &owner, price)?;
+
+			Self::deposit_event(RawEvent::TradeAuthenticated(property_id, buyer, owner, sender));
 
 			Ok(())
 		}
@@ -206,6 +248,8 @@ decl_event!(
 		Authenticated(AccountId, Hash, bool),
 		ManagerAdded(AccountId),
 		PropertyForsale(Hash, Balance),
+		BuyProperty(Hash, AccountId, AccountId),
+		TradeAuthenticated(Hash, AccountId, AccountId, AccountId),
 	}
 );
 
