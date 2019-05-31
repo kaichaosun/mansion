@@ -9,7 +9,7 @@ DPM: Department of Property Management
 * [x] DPM - authenticate the new created property
 * [x] Owner - put a property in market
 * [x] Buyer - make an offer and lock a property in market
-* [ ] DPM - authenticate the purchase
+* [x] DPM - authenticate the purchase
 * [ ] Buyer/Owner - cancel the offer, unlock the property (nice to have)
 * [ ] Owner - confirm the lock (nice to have)
 
