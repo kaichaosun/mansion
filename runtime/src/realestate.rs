@@ -101,6 +101,8 @@ decl_module! {
 
 			<PropertyOwner<T>>::insert(random_hash, sender);
 
+			runtime_io::print("Insert successfully");
+
 			<Nonce<T>>::mutate(|n| *n += 1);
 
 			Ok(())
