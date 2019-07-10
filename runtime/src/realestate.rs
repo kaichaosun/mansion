@@ -89,6 +89,9 @@ decl_module! {
             let random_seed = <system::Module<T>>::random_seed();
             let random_hash = (random_seed, &sender, nonce).using_encoded(<T as system::Trait>::Hashing::hash);
 
+            runtime_io::print("Random hash is:");
+			runtime_io::print(&Encode::encode(&random_hash)[..]);
+
 			let property = Property {
 				id: random_hash,
 				size: size,
@@ -100,8 +103,6 @@ decl_module! {
 			<AllPropertiesArray<T>>::insert(nonce, random_hash);
 
 			<PropertyOwner<T>>::insert(random_hash, sender);
-
-			runtime_io::print("Insert successfully");
 
 			<Nonce<T>>::mutate(|n| *n += 1);
 
