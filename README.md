@@ -38,11 +38,19 @@ cargo build --release
 }
 ```
 
-## Questions
-* what's the private key of Alice
-* why system::Trait do not need to import
-* all the user can run a validator?
-* option<Balance> -> Balance in the serialization json format
-* `cargo build` is slow, how to improve it
-* new created account is not allowed to execute extrinsics.
-* purge can't delete created account.
+## FAQ
+
+Q: What's the private key of Alice?
+A: The key seed of prebuild accout Alice is `//Alice`, and bob's seed is `//Bob`, [source code](https://github.com/paritytech/substrate/blob/master/core/cli/src/lib.rs#L727).
+
+Q: Why system::Trait do not need to import?
+A: The use of `system::Trait` is a full path to system crate, no need to import with `use` keyword.
+
+Q: Can all the user run a validator?
+A: For `dev` network, Alice is the only one and default validator. For `local` network, Alice and Bob are the available validators. If you are playing on `kusama` network with Polkadot, you need enough ksm to be selected as a validator.
+
+Q: What's the serialised json format for Option<Balance>?
+
+Q: `cargo build` is slow, how to improve it?
+A: If it's related to network, try use a mirrored crates registry. If it's hardware related, invest on yourself with a powerful machine. :) 
+
